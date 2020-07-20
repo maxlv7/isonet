@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 
 
@@ -77,3 +79,7 @@ def img_2_patches(img: np.ndarray, size: int, stride: int) -> np.ndarray:
 
 def get_label(x: int):
     return np.log2(x / 100).astype(np.float32)
+
+
+def time2str():
+    return time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime())

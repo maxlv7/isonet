@@ -127,4 +127,4 @@ def gen_data(data_path, save_path=None, train=True, test=False, size=64, stride=
 
 
 if __name__ == '__main__':
-    gen_data(data_path="data", save_path="ttt", train=False, test=True, stride=128)
+    gen_data(data_path="data", save_path="data_64_32", train=True, test=True, stride=64)
