@@ -4,7 +4,7 @@ import cv2
 import h5py
 import numpy as np
 
-from utils import normalize, get_label, img_2_patches
+from utils import normalize, get_label, img_2_patches, data_augmentation
 
 
 def gen_data(data_path, save_path=None, train=True, test=False, size=64, stride=64, max_patches=None, aug_times=1,
@@ -82,9 +82,15 @@ def gen_data(data_path, save_path=None, train=True, test=False, size=64, stride=
                     f_train.create_dataset(str(train_num), data=data)
                     f_train_label.create_dataset(str(train_num), data=np.array(get_label(int(k))))
                     train_num += 1
+                    for mx in range(aug_times):
+                        data_aug = data_augmentation(patches[:, :, :, nx].copy(), np.random.randint(1, 8))
+                        f_train.create_dataset(str(train_num), data=data_aug)
+                        f_train_label.create_dataset(str(train_num), data=np.array(get_label(int(k))))
+                        train_num += 1
 
         f_train.close()
         f_train_label.close()
+        print(f"train num:{train_num}")
     if test:
         # Gen Test Data
         f_test = h5py.File(save_path.joinpath(val_h5), 'w')
@@ -116,7 +122,6 @@ def gen_data(data_path, save_path=None, train=True, test=False, size=64, stride=
                 # 处理每一张小图
                 print(f"Test file:{f} --> ##{patches.shape[3]}##samples")
                 for nx in range(patches.shape[3]):
-                    # data = data_augmentation(patches[:, :, :, nx].copy(), np.random.randint(0, 7))
                     data = patches[:, :, :, nx]
                     f_test.create_dataset(str(val_num), data=data)
                     f_test_label.create_dataset(str(val_num), data=np.array(get_label(int(k))))
@@ -124,7 +129,8 @@ def gen_data(data_path, save_path=None, train=True, test=False, size=64, stride=
 
         f_test.close()
         f_test_label.close()
+        print(f"Test num:{val_num}")
 
 
 if __name__ == '__main__':
-    gen_data(data_path="data", save_path="data_64_32", train=True, test=True, stride=64)
+    gen_data(data_path="data", save_path="data_64_64_aug3", train=False, test=True, stride=64, aug_times=3)

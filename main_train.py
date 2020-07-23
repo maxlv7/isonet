@@ -22,13 +22,13 @@ if __name__ == '__main__':
     resume_checkpoint = "net_28_2020-07-20_12:17:10.cpth"
     milestones = [10, 30]
     lr = 1e-3
-    data_path = "data_64_32"
+    data_path = "data_64_64_aug3"
 
     print("load data....")
     dataset = ISONetData(data_path=data_path)
     dataset_test = ISONetData(data_path=data_path, train=False)
 
-    data_loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
+    data_loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True,num_workers=6,pin_memory=True)
     data_loader_test = DataLoader(dataset=dataset_test, batch_size=batch_size, shuffle=False)
     print("load data success...")
 
@@ -47,7 +47,8 @@ if __name__ == '__main__':
         cuda = False
 
     net = ISONet()
-    criterion = nn.L1Loss(reduction="sum")
+    # net = AlexNet()
+    criterion = nn.MSELoss(reduction="mean")
     optimizer = optim.Adam(net.parameters(), lr=lr)
 
     if cuda:
@@ -65,8 +66,11 @@ if __name__ == '__main__':
         optimizer.load_state_dict((checkpoint["optimizer"]))
         scheduler.load_state_dict(checkpoint["scheduler"])
         resume_epoch = checkpoint["epoch"]
+        best_test_loss = checkpoint["best_test_loss"]
+
         start_epoch = resume_epoch
-        print(f"start resume epoch {start_epoch}...")
+        print(f"start resume epoch [{start_epoch}]...")
+        print(f"resume best_test_loss [{start_epoch}]...")
     else:
         # init weight
         for m in net.modules():
@@ -74,11 +78,12 @@ if __name__ == '__main__':
                 nn.init.kaiming_normal_(m.weight)
             elif isinstance(m, nn.Linear):
                 nn.init.constant_(m.bias, 0)
-    # For save better model
-    test_loss_flag = False
-    best_test_loss = 0
 
-    for epoch in range(start_epoch, 60):
+    # For save better model
+    if not locals().get("best_test_loss"):
+        best_test_loss = 0
+
+    for epoch in range(start_epoch, 50):
         print(f"start train epoch {epoch}...")
         net.train()
         for i, (data, label) in enumerate(data_loader, 0):
@@ -98,7 +103,6 @@ if __name__ == '__main__':
             loss.backward()
 
             optimizer.step()
-
             if i % 500 == 499:
                 end_time = int(time.time())
                 use_time = end_time - start_time
@@ -116,7 +120,7 @@ if __name__ == '__main__':
 
         test_loss = 0
         with torch.no_grad():
-            loss_t = nn.L1Loss(reduction="sum")
+            loss_t = nn.MSELoss(reduction="mean")
             if cuda:
                 loss_t = loss_t.to(device)
             for data, label in data_loader_test:
@@ -138,7 +142,8 @@ if __name__ == '__main__':
             "net": net.state_dict(),
             "optimizer": optimizer.state_dict(),
             "epoch": epoch,
-            "scheduler": scheduler.state_dict()
+            "scheduler": scheduler.state_dict(),
+            "best_test_loss":best_test_loss
         }
 
         # First save
@@ -151,8 +156,9 @@ if __name__ == '__main__':
             if test_loss < best_test_loss:
                 # save model
                 print("Get better model,save model...")
-                torch.save(net.state_dict(), model_path.joinpath(f"net_best_{time2str()}.pth"))
+                # torch.save(net.state_dict(), model_path.joinpath(f"net_best_{time2str()}.pth"))
+                torch.save(net.state_dict(), model_path.joinpath(f"net_best_mse_mean_64aug3.pth"))
                 best_test_loss = test_loss
         # save checkpoint
         print("save checkpoint...")
-        torch.save(checkpoint, checkpoint_path.joinpath(f"net_{epoch}_{time2str()}.cpth"))
+        torch.save(checkpoint, checkpoint_path.joinpath(f"net_mse_mean_64aug3_{epoch}_{time2str()}.cpth"))

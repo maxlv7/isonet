@@ -1,75 +1,67 @@
-from pathlib import Path
-from torchvision.models import resnet18
 import cv2
-import torch
 import math
+
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+
 from isonet import ISONet
-from utils import img_2_patches, get_label
+from utils import img_2_patches, normalize
 
 net = ISONet()
 
 # 加载模型
-# if torch.cuda.is_available():
-#     net.load_state_dict(torch.load("net.pth"))
-# model_path = "models/checkpoint/net_1.cpth"
-path = Path("models/checkpoint")
 
-for n in path.glob("*.cpth"):
-    model_path = n
-    print(model_path)
-    checkpoint = True
-    if checkpoint:
-        net.load_state_dict(torch.load(model_path, map_location=torch.device('cpu'))["net"])
-    else:
-        net.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+model_path = "models/net_best_2020-07-21_01:08:34.pth"
+# model_path = "models/net_best_mse_mean.pth"
+print(model_path)
 
-    # 读入一张图片
-    # BGR -> RGB
-    img = cv2.imread(r"data/Test/100/0108.tif")[:, :, ::-1]
-    # HWC ->CHW
-    img = img.transpose(2, 0, 1)
+checkpoint = False
+if checkpoint:
+    net.load_state_dict(torch.load(model_path, map_location=torch.device('cpu'))["net"])
+else:
+    net.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
 
-    # normalize
-    img = img / 255.
-    # 把图片分割为若干小块
-    patches = img_2_patches(img, 64, 64)
-    print(f"patches {patches.shape[3]}")
-    correct100 = 0
-    correct200 = 0
-    correct400 = 0
-    correct800 = 0
-    correct1600 = 0
-    correct3200 = 0
-    fail = 0
+# 读入一张图片
+# BGR -> RGB
+img = cv2.imread(r"data/Test/800/1338_800.tif")[:, :, ::-1]
+# HWC ->CHW
+img = img.transpose(2, 0, 1)
 
-    for nx in range(patches.shape[3]):
-        with torch.no_grad():
-            p = torch.from_numpy(patches[:, :, :, nx]).to(dtype=torch.float32).unsqueeze(0)
-            pre = net(p)
+# normalize
+img = normalize(img)
+# 把图片分割为若干小块
+patches = img_2_patches(img, 64, 64)
+c, h, w = img.shape
+Hb = int(np.floor(h / 64))
+Wb = int(np.floor(w / 64))
 
-            real = math.pow(2, pre.item()) * 100
-            # print(real)
-            if pre.item()<=0:
-                fail+=1
-            if 80 <= real <= 120:
-                correct100 += 1
-            if 180 <= real <= 220:
-                correct200 += 1
-            if 380 <= real <= 420:
-                correct400 += 1
-            if 780 <= real <= 820:
-                correct800 += 1
-            if 1580 <= real <= 1620:
-                correct1600 += 1
-            if 3180 <= real <= 3220:
-                correct3200 += 1
+print(f"patches {patches.shape[3]}")
+x = np.linspace(1, patches.shape[3], patches.shape[3])
+y = []
+res = []
+for nx in range(patches.shape[3]):
+    with torch.no_grad():
+        p = torch.from_numpy(patches[:, :, :, nx]).to(dtype=torch.float32).unsqueeze(0)
+        pre = net(p)
 
+        value = pre.item()
+        res.append(value)
+        y.append(value)
+        predict_iso = math.pow(2, pre.item()) * 100
+        print(predict_iso)
 
-    ps = patches.shape[3]
-    print(f"iso100: {correct100}/{ps} [{correct100/ps:.4f}]")
-    print(f"iso200: {correct200}/{ps} [{correct200/ps:.4f}]")
-    print(f"iso400: {correct400}/{ps} [{correct400/ps:.4f}]")
-    print(f"iso800: {correct800}/{ps} [{correct800/ps:.4f}]")
-    print(f"iso1600: {correct1600}/{ps} [{correct1600/ps:.4f}]")
-    print(f"iso3200: {correct3200}/{ps} [{correct3200/ps:.4f}]")
-    print(f"fail: {fail}/{ps} [{fail/ps:.4f}]")
+y = np.array(y)
+
+# plot scatter
+plt.scatter(x,y)
+plt.xlabel('index')
+plt.ylabel('pre_iso')
+plt.show()
+
+# plot
+res = np.array(res)
+plt.imshow(res.reshape([Hb, Wb]))
+plt.colorbar()
+plt.show()
