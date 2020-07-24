@@ -1,4 +1,5 @@
 import time
+import math
 from pathlib import Path
 
 import torch
@@ -19,10 +20,23 @@ if __name__ == '__main__':
     resume = False
     batch_size = 128
     start_epoch = 1
-    resume_checkpoint = "net_28_2020-07-20_12:17:10.cpth"
     milestones = [10, 30]
     lr = 1e-3
-    data_path = "data_64_64_aug3"
+    total_epoch = 50
+    resume_checkpoint_filename = ""
+    best_model_name = "net_best_mse_mean_64aug0_jpeg.pth"
+    checkpoint_name = "net_mse_mean_64aug0_jpeg"
+    data_path = r"data_64_64_aug3"
+
+    print("#####################")
+    print("start load args...")
+    print(f"cuda:{cuda}\nresume:{resume}\nbatch size:{batch_size}")
+    print(f"stat epoch:{start_epoch}\nmillstones:{milestones}")
+    print(f"lr:{lr}\ntotal epoch:{total_epoch}")
+    print(f"save model name:{best_model_name}")
+    print(f"checkpoint name:{checkpoint_name}")
+    print(f"data path:{data_path}")
+    print("#####################")
 
     print("load data....")
     dataset = ISONetData(data_path=data_path)
@@ -56,12 +70,12 @@ if __name__ == '__main__':
         criterion = criterion.to(device=device)
 
     scheduler = MultiStepLR(optimizer=optimizer, milestones=milestones, gamma=0.1)
-    # writer = SummaryWriter('runs')
+    writer = SummaryWriter('runs')
 
     # resume
     if resume:
         print("resuming training...")
-        checkpoint = torch.load(checkpoint_path.joinpath(resume_checkpoint))
+        checkpoint = torch.load(checkpoint_path.joinpath(resume_checkpoint_filename))
         net.load_state_dict(checkpoint["net"])
         optimizer.load_state_dict((checkpoint["optimizer"]))
         scheduler.load_state_dict(checkpoint["scheduler"])
@@ -83,9 +97,10 @@ if __name__ == '__main__':
     if not locals().get("best_test_loss"):
         best_test_loss = 0
 
-    for epoch in range(start_epoch, 50):
+    for epoch in range(start_epoch, total_epoch):
         print(f"start train epoch {epoch}...")
         net.train()
+        writer.add_scalar("Train/Learning Rate",scheduler.get_last_lr(),epoch)
         for i, (data, label) in enumerate(data_loader, 0):
             if i == 0:
                 start_time = int(time.time())
@@ -112,7 +127,10 @@ if __name__ == '__main__':
                     end="")
                 print(f"use time [{end_time - start_time}] sec")
                 start_time = end_time
-                # writer.add_scalar("train_loss", loss)
+            # record train loss every 128 batch
+            # train data number is 128 * 128
+            if i % 128 == 127:
+                writer.add_scalar("Train/loss", loss, i+math.floor(len(dataset)/128/128)*(epoch-1))
 
         # validate
         print("eval model...")
@@ -138,27 +156,30 @@ if __name__ == '__main__':
         print(f'\nTest Data: Average batch[{batch_size}] loss: {test_loss:.4f}\n')
         scheduler.step()
 
+        writer.add_scalar("Test/Loss",test_loss,epoch)
+
         checkpoint = {
             "net": net.state_dict(),
             "optimizer": optimizer.state_dict(),
             "epoch": epoch,
             "scheduler": scheduler.state_dict(),
-            "best_test_loss":best_test_loss
+            "best_test_loss": best_test_loss
         }
 
         # First save
         if best_test_loss == 0:
             print("save model...")
-            torch.save(net.state_dict(), model_path.joinpath(f"net_{time2str()}.pth"))
+            torch.save(net.state_dict(), model_path.joinpath(f"net_1_{time2str()}.pth"))
             best_test_loss = test_loss
         else:
             # Save better model
             if test_loss < best_test_loss:
                 # save model
                 print("Get better model,save model...")
-                # torch.save(net.state_dict(), model_path.joinpath(f"net_best_{time2str()}.pth"))
-                torch.save(net.state_dict(), model_path.joinpath(f"net_best_mse_mean_64aug3.pth"))
+                torch.save(net.state_dict(),model_path.joinpath(best_model_name))
                 best_test_loss = test_loss
         # save checkpoint
-        print("save checkpoint...")
-        torch.save(checkpoint, checkpoint_path.joinpath(f"net_mse_mean_64aug3_{epoch}_{time2str()}.cpth"))
+        c_time = time2str()
+        torch.save(checkpoint, checkpoint_path.joinpath(
+            f"{checkpoint_name}_{epoch}_{c_time}.cpth"))
+        print(f"save checkpoint [{checkpoint_name}_{epoch}_{c_time}.cpth]...\n")
