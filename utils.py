@@ -82,4 +82,4 @@ def get_label(x: int):
 
 
 def time2str():
-    return time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime())
+    return time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
