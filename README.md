@@ -1,3 +1,10 @@
-net.pth 模型文件
+run test_model.py test model
 
-运行test_model.py测试模型效果
+`net_best64aug0_jpeg.pth`
+jpeg model without aug
+
+`net_best_64aug0.pth`
+tif model without aug
+
+`net_best_64aug3.pth`
+tif model with three times aug
