@@ -70,7 +70,7 @@ if __name__ == '__main__':
         criterion = criterion.to(device=device)
 
     scheduler = MultiStepLR(optimizer=optimizer, milestones=milestones, gamma=0.1)
-    writer = SummaryWriter('runs')
+    writer = SummaryWriter()
 
     # resume
     if resume:
@@ -100,7 +100,7 @@ if __name__ == '__main__':
     for epoch in range(start_epoch, total_epoch):
         print(f"start train epoch {epoch}...")
         net.train()
-        writer.add_scalar("Train/Learning Rate",scheduler.get_last_lr(),epoch)
+        writer.add_scalar("Train/Learning Rate",scheduler.get_last_lr()[0],epoch)
         for i, (data, label) in enumerate(data_loader, 0):
             if i == 0:
                 start_time = int(time.time())
