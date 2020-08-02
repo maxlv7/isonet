@@ -7,7 +7,7 @@ def data_augmentation(image, mode):
     r"""Performs dat augmentation of the input image
 
     Args:
-        image: a numpy array C*H*W
+        image: a cv2 (OpenCV) image
         mode: int. Choice of transformation to apply to the image
             0 - no transformation
             1 - flip up and down
@@ -18,8 +18,9 @@ def data_augmentation(image, mode):
             6 - rotate 270 degree
             7 - rotate 270 degree and flip
     """
-    out = image
 
+
+    out = np.transpose(image, (1, 2, 0))
     if mode == 0:
         # original
         out = out
@@ -28,28 +29,28 @@ def data_augmentation(image, mode):
         out = np.flipud(out)
     elif mode == 2:
         # rotate counterwise 90 degree
-        out = np.rot90(out, k=1, axes=(1, 2))
+        out = np.rot90(out)
     elif mode == 3:
         # rotate 90 degree and flip up and down
-        out = np.rot90(out, k=1, axes=(1, 2))
+        out = np.rot90(out)
         out = np.flipud(out)
     elif mode == 4:
         # rotate 180 degree
-        out = np.rot90(out, k=2, axes=(1, 2))
+        out = np.rot90(out, k=2)
     elif mode == 5:
         # rotate 180 degree and flip
-        out = np.rot90(out, k=2, axes=(1, 2))
+        out = np.rot90(out, k=2)
         out = np.flipud(out)
     elif mode == 6:
         # rotate 270 degree
-        out = np.rot90(out, k=3, axes=(1, 2))
+        out = np.rot90(out, k=3)
     elif mode == 7:
         # rotate 270 degree and flip
-        out = np.rot90(out, k=3, axes=(1, 2))
+        out = np.rot90(out, k=3)
         out = np.flipud(out)
     else:
         raise Exception('Invalid choice of image transformation')
-    return out
+    return np.transpose(out, (2, 0, 1))
 
 
 def normalize(data):
