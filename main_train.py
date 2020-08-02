@@ -1,5 +1,5 @@
+import argparse
 import time
-import math
 from pathlib import Path
 
 import torch
@@ -13,36 +13,26 @@ from isonet import ISONet
 from data_set import ISONetData
 from utils import time2str
 
-if __name__ == '__main__':
 
+def main_train(args):
     # set paramaters
-    cuda = True
-    resume = False
-    batch_size = 128
+    cuda = args.cuda
+    resume = args.resume_training
+    batch_size = args.batch_size
     start_epoch = 1
-    milestones = [10, 30]
-    lr = 1e-3
-    total_epoch = 50
+    milestones = args.milestones
+    lr = args.lr
+    total_epoch = args.epochs
     resume_checkpoint_filename = ""
-    best_model_name = "net_best_mse_mean_64aug0_jpeg.pth"
-    checkpoint_name = "net_mse_mean_64aug0_jpeg"
-    data_path = r"data_64_64_aug3"
-
-    print("#####################")
-    print("start load args...")
-    print(f"cuda:{cuda}\nresume:{resume}\nbatch size:{batch_size}")
-    print(f"stat epoch:{start_epoch}\nmillstones:{milestones}")
-    print(f"lr:{lr}\ntotal epoch:{total_epoch}")
-    print(f"save model name:{best_model_name}")
-    print(f"checkpoint name:{checkpoint_name}")
-    print(f"data path:{data_path}")
-    print("#####################")
+    best_model_name = args.best_model_name
+    checkpoint_name = args.checkpoint_name_prefix
+    data_path = args.data_path
 
     print("load data....")
     dataset = ISONetData(data_path=data_path)
     dataset_test = ISONetData(data_path=data_path, train=False)
 
-    data_loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True,num_workers=6,pin_memory=True)
+    data_loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True, num_workers=6, pin_memory=True)
     data_loader_test = DataLoader(dataset=dataset_test, batch_size=batch_size, shuffle=False)
     print("load data success...")
 
@@ -97,10 +87,11 @@ if __name__ == '__main__':
     if not locals().get("best_test_loss"):
         best_test_loss = 0
 
+    record = 0
     for epoch in range(start_epoch, total_epoch):
         print(f"start train epoch {epoch}...")
         net.train()
-        writer.add_scalar("Train/Learning Rate",scheduler.get_last_lr()[0],epoch)
+        writer.add_scalar("Train/Learning Rate", scheduler.get_last_lr()[0], epoch)
         for i, (data, label) in enumerate(data_loader, 0):
             if i == 0:
                 start_time = int(time.time())
@@ -130,7 +121,8 @@ if __name__ == '__main__':
             # record train loss every 128 batch
             # train data number is 128 * 128
             if i % 128 == 127:
-                writer.add_scalar("Train/loss", loss, i+math.floor(len(dataset)/128/128)*(epoch-1))
+                writer.add_scalar("Train/loss", loss, record)
+                record += 1
 
         # validate
         print("eval model...")
@@ -156,7 +148,7 @@ if __name__ == '__main__':
         print(f'\nTest Data: Average batch[{batch_size}] loss: {test_loss:.4f}\n')
         scheduler.step()
 
-        writer.add_scalar("Test/Loss",test_loss,epoch)
+        writer.add_scalar("Test/Loss", test_loss, epoch)
 
         checkpoint = {
             "net": net.state_dict(),
@@ -169,17 +161,39 @@ if __name__ == '__main__':
         # First save
         if best_test_loss == 0:
             print("save model...")
-            torch.save(net.state_dict(), model_path.joinpath(f"net_1_{time2str()}.pth"))
+            torch.save(net.state_dict(), model_path.joinpath(best_model_name))
             best_test_loss = test_loss
         else:
             # Save better model
             if test_loss < best_test_loss:
                 # save model
                 print("Get better model,save model...")
-                torch.save(net.state_dict(),model_path.joinpath(best_model_name))
+                torch.save(net.state_dict(), model_path.joinpath(best_model_name))
                 best_test_loss = test_loss
         # save checkpoint
         c_time = time2str()
         torch.save(checkpoint, checkpoint_path.joinpath(
             f"{checkpoint_name}_{epoch}_{c_time}.cpth"))
         print(f"save checkpoint [{checkpoint_name}_{epoch}_{c_time}.cpth]...\n")
+
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--batch_size", type=int, default=128, help="Training batch size")
+    parser.add_argument("--cuda", type=bool, default=True, help="Whether to use CUDA")
+    parser.add_argument("--milestones", type=int, default=[10, 30], nargs=2,
+                        help="When to decay learning rate; should be lower than 'epochs'")
+    parser.add_argument("--epochs", type=int, default=50, help="Number of total training epochs")
+    parser.add_argument("--best_model_name", type=str, default="net.pth", help="model name")
+    parser.add_argument("--checkpoint_name_prefix", type=str, default="net.pth", help="model name prefixes")
+    parser.add_argument("--data_path", type=str, default="data_64_64_aug3", help="Data path,absolute path or relative path")
+    parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
+    parser.add_argument("--resume_training", type=bool, default=False,
+                        help="resume training from a previous checkpoint")
+
+    args = parser.parse_args()
+    # args
+    for p, v in args.__dict__.items():
+        print('\t{}: {}'.format(p, v))
+    main_train(args=args)
