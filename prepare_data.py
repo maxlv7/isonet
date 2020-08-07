@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 
 import cv2
@@ -7,8 +8,17 @@ import numpy as np
 from utils import normalize, get_label, img_2_patches, data_augmentation
 
 
-def gen_data(data_path, save_path=None, train=True, test=False, size=64, stride=64, max_patches=None, aug_times=1,
-             gray_mode=False):
+def gen_data(args):
+    data_path = args.data_path
+    save_path = args.save_path
+    train = args.train
+    test = args.test
+    size = args.size
+    stride = args.stride
+    aug_times = args.aug_times
+    gray_mode = args.gray_mode
+    pic_type = args.pic_type
+
     train_path = Path(data_path).joinpath("Train")
     val_data_path = Path(data_path).joinpath("Test")
 
@@ -21,13 +31,13 @@ def gen_data(data_path, save_path=None, train=True, test=False, size=64, stride=
     files_test = {}
     for x in train_path.glob("*"):
         if x.is_dir():
-            file_list_train = [str(f_train.absolute().resolve()) for f_train in x.glob("*.tif")]
+            file_list_train = [str(f_train.absolute().resolve()) for f_train in x.glob(f"*.{pic_type}")]
             files_train[x.name] = []
             files_train[x.name].extend(file_list_train)
 
     for y in val_data_path.glob("*"):
         if y.is_dir():
-            file_list_test = [str(f_test.absolute().resolve()) for f_test in y.glob("*.tif")]
+            file_list_test = [str(f_test.absolute().resolve()) for f_test in y.glob(f"*.{pic_type}")]
             files_test[y.name] = []
             files_test[y.name].extend(file_list_test)
 
@@ -133,4 +143,22 @@ def gen_data(data_path, save_path=None, train=True, test=False, size=64, stride=
 
 
 if __name__ == '__main__':
-    gen_data(data_path="data", save_path="data_64_64_aug3", train=False, test=True, stride=64, aug_times=3)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--train", type=bool, default=True, help="Whether to generate train data")
+    parser.add_argument("--test", type=bool, default=True, help="Whether generate test data")
+    parser.add_argument("--stride", type=int, default=64)
+    parser.add_argument("--aug_times", type=int, default=0)
+    parser.add_argument("--gray_mode", type=bool, default=False)
+    parser.add_argument("--size", type=int, default=64)
+    parser.add_argument("--pic_type", type=str, default="JPG", help="picture type")
+    parser.add_argument("--data_path", type=str, default="isonet_tif", help="Data path,absolute path or relative path")
+    parser.add_argument("--save_path", type=str, default="data_64_64_aug3",
+                        help="save path,absolute path or relative path")
+
+    args = parser.parse_args()
+    # args
+    for p, v in args.__dict__.items():
+        print('\t{}: {}'.format(p, v))
+
+    gen_data(args)
