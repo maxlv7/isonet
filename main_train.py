@@ -1,5 +1,6 @@
 import argparse
 import time
+import os
 from pathlib import Path
 
 import torch
@@ -9,13 +10,16 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from isonet import ISONet
+from isonet import ISONet, ISONet2
 from data_set import ISONetData
 from utils import time2str
 
 
 def main_train(args):
     # set paramaters
+    if not os.path.isfile(args.resume_training):
+        print(f"{args.resume_training} is not a file!")
+        return
     cuda = args.cuda
     resume = args.resume_training
     batch_size = args.batch_size
@@ -23,9 +27,9 @@ def main_train(args):
     milestones = args.milestones
     lr = args.lr
     total_epoch = args.epochs
-    resume_checkpoint_filename = ""
+    resume_checkpoint_filename = args.resume_training
     best_model_name = args.best_model_name
-    checkpoint_name = args.checkpoint_name_prefix
+    checkpoint_name = args.best_model_name
     data_path = args.data_path
 
     print("load data....")
@@ -50,7 +54,7 @@ def main_train(args):
         print("can not use cuda!")
         cuda = False
 
-    net = ISONet()
+    net = ISONet2()
     # net = AlexNet()
     criterion = nn.MSELoss(reduction="mean")
     optimizer = optim.Adam(net.parameters(), lr=lr)
@@ -72,9 +76,9 @@ def main_train(args):
         resume_epoch = checkpoint["epoch"]
         best_test_loss = checkpoint["best_test_loss"]
 
-        start_epoch = resume_epoch
+        start_epoch = resume_epoch + 1
         print(f"start resume epoch [{start_epoch}]...")
-        print(f"resume best_test_loss [{start_epoch}]...")
+        print(f"resume best_test_loss [{best_test_loss}]...")
     else:
         # init weight
         for m in net.modules():
@@ -171,10 +175,11 @@ def main_train(args):
                 torch.save(net.state_dict(), model_path.joinpath(best_model_name))
                 best_test_loss = test_loss
         # save checkpoint
-        c_time = time2str()
-        torch.save(checkpoint, checkpoint_path.joinpath(
-            f"{checkpoint_name}_{epoch}_{c_time}.cpth"))
-        print(f"save checkpoint [{checkpoint_name}_{epoch}_{c_time}.cpth]...\n")
+        if epoch % args.save_every_epochs == 0:
+            c_time = time2str()
+            torch.save(checkpoint, checkpoint_path.joinpath(
+                f"{checkpoint_name}_{epoch}_{c_time}.cpth"))
+            print(f"save checkpoint [{checkpoint_name}_{epoch}_{c_time}.cpth]...\n")
 
 
 if __name__ == '__main__':
@@ -186,11 +191,11 @@ if __name__ == '__main__':
                         help="When to decay learning rate; should be lower than 'epochs'")
     parser.add_argument("--epochs", type=int, default=50, help="Number of total training epochs")
     parser.add_argument("--best_model_name", type=str, default="net.pth", help="model name")
-    parser.add_argument("--checkpoint_name_prefix", type=str, default="net.pth", help="model name prefixes")
-    parser.add_argument("--data_path", type=str, default="data_64_64_aug3", help="Data path,absolute path or relative path")
+    parser.add_argument("--data_path", type=str, default="data_64_64_aug3",
+                        help="Data path,absolute path or relative path")
     parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
-    parser.add_argument("--resume_training", type=bool, default=False,
-                        help="resume training from a previous checkpoint")
+    parser.add_argument("--resume_training", type=str, help="resume training from a previous checkpoint,input the checkpoint file path")
+    parser.add_argument("--save_every_epochs", type=int, default=1, help="Number of training epochs to save state")
 
     args = parser.parse_args()
     # args
