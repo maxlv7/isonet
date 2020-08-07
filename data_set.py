@@ -39,7 +39,7 @@ class ISONetData(dt.Dataset):
             self.h5 = h5py.File(self.data_path.joinpath(self.val_h5), 'r')
             self.h5_label = h5py.File(self.data_path.joinpath(self.val_h5_label), 'r')
 
-        self.len = self.h5.__len__()
+        self.len = self.h5_label.__len__()
         self.h5.close()
         self.h5_label.close()
         self.h5 = None

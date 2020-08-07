@@ -17,9 +17,12 @@ from utils import time2str
 
 def main_train(args):
     # set paramaters
-    if not os.path.isfile(args.resume_training):
-        print(f"{args.resume_training} is not a file!")
-        return
+    if args.resume_training is not None:
+        if not os.path.isfile(args.resume_training):
+            print(f"{args.resume_training} is not a file!")
+            return
+        else:
+            print(f"load checkpoint:{args.resume_training}")
     cuda = args.cuda
     resume = args.resume_training
     batch_size = args.batch_size
@@ -147,7 +150,7 @@ def main_train(args):
                 # sum up batch loss
                 test_loss += loss_t(predict, label).item()
 
-        test_loss /= len(data_loader_test.dataset)
+        test_loss /= len(dataset_test)
         test_loss *= batch_size
         print(f'\nTest Data: Average batch[{batch_size}] loss: {test_loss:.4f}\n')
         scheduler.step()
