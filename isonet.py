@@ -3,13 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-# TODO 网络结构优化 OK
-# TODO 改变学习率 OK
-# TODO cuda支持 OK
-# TODO 测试集支持 OK
-# TODO 断点恢复训练 OK
-# TODO tensorboard支持
-
 class ISONet(nn.Module):
     def __init__(self):
         super().__init__()
