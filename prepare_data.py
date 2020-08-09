@@ -9,6 +9,9 @@ from utils import normalize, get_label, img_2_patches, data_augmentation
 
 
 def gen_data(args):
+    """
+    生成训练测试数据集
+    """
     data_path = args.data_path
     save_path = args.save_path
     train = args.train
@@ -40,9 +43,6 @@ def gen_data(args):
             file_list_test = [str(f_test.absolute().resolve()) for f_test in y.glob(f"*.{pic_type}")]
             files_test[y.name] = []
             files_test[y.name].extend(file_list_test)
-
-    # print(files_train)
-    # print(files_test)
 
     if gray_mode:
         train_h5 = 'train_gray.h5'
@@ -85,13 +85,13 @@ def gen_data(args):
                 patches = img_2_patches(t_pic, size, stride)
 
                 # 处理每一张小图
-                print(f"Train file:{f} --> ##{patches.shape[3]}##samples")
+                print(f"训练文件:{f} --> ##{patches.shape[3]}##样本")
                 for nx in range(patches.shape[3]):
-                    # data = data_augmentation(patches[:, :, :, nx].copy(), np.random.randint(0, 7))
                     data = patches[:, :, :, nx]
                     f_train.create_dataset(str(train_num), data=data)
                     f_train_label.create_dataset(str(train_num), data=np.array(get_label(int(k))))
                     train_num += 1
+                    # 数据增广
                     for mx in range(aug_times):
                         data_aug = data_augmentation(patches[:, :, :, nx].copy(), np.random.randint(1, 8))
                         f_train.create_dataset(str(train_num), data=data_aug)
@@ -100,7 +100,7 @@ def gen_data(args):
 
         f_train.close()
         f_train_label.close()
-        print(f"train num:{train_num}")
+        print(f"训练集图片数量:{train_num}")
     if test:
         # Gen Test Data
         f_test = h5py.File(save_path.joinpath(val_h5), 'w')
@@ -130,7 +130,7 @@ def gen_data(args):
                 patches = img_2_patches(t_pic, size, stride)
 
                 # 处理每一张小图
-                print(f"Test file:{f} --> ##{patches.shape[3]}##samples")
+                print(f"测试文件:{f} --> ##{patches.shape[3]}##样本")
                 for nx in range(patches.shape[3]):
                     data = patches[:, :, :, nx]
                     f_test.create_dataset(str(val_num), data=data)
@@ -139,25 +139,25 @@ def gen_data(args):
 
         f_test.close()
         f_test_label.close()
-        print(f"Test num:{val_num}")
+        print(f"测试集图片数量:{val_num}")
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--train", type=bool, default=True, help="Whether to generate train data")
-    parser.add_argument("--test", type=bool, default=True, help="Whether generate test data")
-    parser.add_argument("--stride", type=int, default=64)
-    parser.add_argument("--aug_times", type=int, default=0)
-    parser.add_argument("--gray_mode", type=bool, default=False)
-    parser.add_argument("--size", type=int, default=64)
-    parser.add_argument("--pic_type", type=str, default="JPG", help="picture type")
-    parser.add_argument("--data_path", type=str, default="isonet_tif", help="Data path,absolute path or relative path")
+    parser.add_argument("--train", type=bool, default=True, help="是否想要生成训练集数据")
+    parser.add_argument("--test", type=bool, default=True, help="是否想要生成测试集数据")
+    parser.add_argument("--stride", type=int, default=64, help="截取图片的步长")
+    parser.add_argument("--aug_times", type=int, default=0, help="数据增广的次数")
+    parser.add_argument("--gray_mode", type=bool, default=False, help="使用灰度图训练模型")
+    parser.add_argument("--size", type=int, default=64, help="截取的图片大小")
+    parser.add_argument("--pic_type", type=str, default="tif", help="数据集中图片的后缀名")
+    parser.add_argument("--data_path", type=str, default="isonet_tif", help="训练数据集文件夹的的位置")
     parser.add_argument("--save_path", type=str, default="data_64_64_aug3",
-                        help="save path,absolute path or relative path")
+                        help="生成的数据集存储的位置")
 
     args = parser.parse_args()
-    # args
+    # 输出参数
     for p, v in args.__dict__.items():
         print('\t{}: {}'.format(p, v))
 

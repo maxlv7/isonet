@@ -10,7 +10,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from isonet import ISONet, ISONet2
+from isonet import ISONet
 from data_set import ISONetData
 from utils import time2str
 
@@ -19,14 +19,13 @@ def main_train(args):
     # set paramaters
     if args.resume_training is not None:
         if not os.path.isfile(args.resume_training):
-            print(f"{args.resume_training} is not a file!")
+            print(f"{args.resume_training} 不是一个合法的文件!")
             return
         else:
-            print(f"load checkpoint:{args.resume_training}")
+            print(f"加载检查点:{args.resume_training}")
     cuda = args.cuda
     resume = args.resume_training
     batch_size = args.batch_size
-    start_epoch = 1
     milestones = args.milestones
     lr = args.lr
     total_epoch = args.epochs
@@ -34,14 +33,15 @@ def main_train(args):
     best_model_name = args.best_model_name
     checkpoint_name = args.best_model_name
     data_path = args.data_path
+    start_epoch = 1
 
-    print("load data....")
+    print("加载数据....")
     dataset = ISONetData(data_path=data_path)
     dataset_test = ISONetData(data_path=data_path, train=False)
 
     data_loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True, num_workers=6, pin_memory=True)
     data_loader_test = DataLoader(dataset=dataset_test, batch_size=batch_size, shuffle=False)
-    print("load data success...")
+    print("成功加载数据...")
 
     model_path = Path("models")
     checkpoint_path = model_path.joinpath("checkpoint")
@@ -54,11 +54,10 @@ def main_train(args):
     if torch.cuda.is_available():
         device = torch.cuda.current_device()
     else:
-        print("can not use cuda!")
+        print("cuda 无效!")
         cuda = False
 
-    net = ISONet2()
-    # net = AlexNet()
+    net = ISONet()
     criterion = nn.MSELoss(reduction="mean")
     optimizer = optim.Adam(net.parameters(), lr=lr)
 
@@ -69,9 +68,9 @@ def main_train(args):
     scheduler = MultiStepLR(optimizer=optimizer, milestones=milestones, gamma=0.1)
     writer = SummaryWriter()
 
-    # resume
+    # 恢复训练
     if resume:
-        print("resuming training...")
+        print("恢复训练中...")
         checkpoint = torch.load(checkpoint_path.joinpath(resume_checkpoint_filename))
         net.load_state_dict(checkpoint["net"])
         optimizer.load_state_dict((checkpoint["optimizer"]))
@@ -80,23 +79,22 @@ def main_train(args):
         best_test_loss = checkpoint["best_test_loss"]
 
         start_epoch = resume_epoch + 1
-        print(f"start resume epoch [{start_epoch}]...")
-        print(f"resume best_test_loss [{best_test_loss}]...")
+        print(f"从第[{start_epoch}]轮开始训练...")
+        print(f"上一次的损失为: [{best_test_loss}]...")
     else:
-        # init weight
+        # 初始化权重
         for m in net.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight)
             elif isinstance(m, nn.Linear):
                 nn.init.constant_(m.bias, 0)
 
-    # For save better model
     if not locals().get("best_test_loss"):
         best_test_loss = 0
 
     record = 0
     for epoch in range(start_epoch, total_epoch):
-        print(f"start train epoch {epoch}...")
+        print(f"开始第 [{epoch}] 轮训练...")
         net.train()
         writer.add_scalar("Train/Learning Rate", scheduler.get_last_lr()[0], epoch)
         for i, (data, label) in enumerate(data_loader, 0):
@@ -123,16 +121,17 @@ def main_train(args):
                 print(
                     f">>> epoch[{epoch}] loss[{loss:.4f}]  {i * batch_size}/{len(dataset)} lr{scheduler.get_last_lr()} ",
                     end="")
-                print(f"use time [{end_time - start_time}] sec")
+                print(f"耗费时间：[{end_time - start_time}] 秒")
+                all = (len(dataset)/500)*(end_time-start_time)
+                print(f"all: {all}")
                 start_time = end_time
-            # record train loss every 128 batch
-            # train data number is 128 * 128
+            # 记录到 tensorboard
             if i % 128 == 127:
                 writer.add_scalar("Train/loss", loss, record)
                 record += 1
 
         # validate
-        print("eval model...")
+        print("测试模型...")
         net.eval()
 
         test_loss = 0
@@ -165,43 +164,41 @@ def main_train(args):
             "best_test_loss": best_test_loss
         }
 
-        # First save
         if best_test_loss == 0:
-            print("save model...")
+            print("保存模型中...")
             torch.save(net.state_dict(), model_path.joinpath(best_model_name))
             best_test_loss = test_loss
         else:
-            # Save better model
+            # 保存更好的模型
             if test_loss < best_test_loss:
-                # save model
-                print("Get better model,save model...")
+                print("获取到更好的模型,保存中...")
                 torch.save(net.state_dict(), model_path.joinpath(best_model_name))
                 best_test_loss = test_loss
-        # save checkpoint
+        # 保存检查点
         if epoch % args.save_every_epochs == 0:
             c_time = time2str()
             torch.save(checkpoint, checkpoint_path.joinpath(
                 f"{checkpoint_name}_{epoch}_{c_time}.cpth"))
-            print(f"save checkpoint [{checkpoint_name}_{epoch}_{c_time}.cpth]...\n")
+            print(f"保存检查点: [{checkpoint_name}_{epoch}_{c_time}.cpth]...\n")
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--batch_size", type=int, default=128, help="Training batch size")
-    parser.add_argument("--cuda", type=bool, default=True, help="Whether to use CUDA")
+    parser.add_argument("--batch_size", type=int, default=128, help="训练的批量大小")
+    parser.add_argument("--cuda", type=bool, default=True, help="是否使用cuda")
     parser.add_argument("--milestones", type=int, default=[10, 30], nargs=2,
-                        help="When to decay learning rate; should be lower than 'epochs'")
-    parser.add_argument("--epochs", type=int, default=50, help="Number of total training epochs")
-    parser.add_argument("--best_model_name", type=str, default="net.pth", help="model name")
+                        help="改变学习率的时机")
+    parser.add_argument("--epochs", type=int, default=50, help="总训练轮数")
+    parser.add_argument("--best_model_name", type=str, default="net.pth", help="模型名")
     parser.add_argument("--data_path", type=str, default="data_64_64_aug3",
-                        help="Data path,absolute path or relative path")
-    parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
-    parser.add_argument("--resume_training", type=str, help="resume training from a previous checkpoint,input the checkpoint file path")
-    parser.add_argument("--save_every_epochs", type=int, default=1, help="Number of training epochs to save state")
+                        help="训练数据集的位置")
+    parser.add_argument("--lr", type=float, default=1e-3, help="初始的学习率")
+    parser.add_argument("--resume_training", type=str, help="从前一个检查点恢复训练的检查点的名称")
+    parser.add_argument("--save_every_epochs", type=int, default=1, help="保存检查点的频率")
 
     args = parser.parse_args()
-    # args
+    # 输出参数
     for p, v in args.__dict__.items():
         print('\t{}: {}'.format(p, v))
     main_train(args=args)
