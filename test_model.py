@@ -1,5 +1,6 @@
 import argparse
 import math
+import time
 
 import cv2
 import matplotlib.pyplot as plt
@@ -43,9 +44,10 @@ def test_model(args):
     x = np.linspace(1, patches.shape[3], patches.shape[3])
     y = []
     res = []
+    start_time = time.time()
     for nx in range(patches.shape[3]):
         with torch.no_grad():
-            p = torch.from_numpy(patches[:, :, :, nx]).to(dtype=torch.float32).unsqueeze(0)
+            p = torch.from_numpy(patches[:, :, :, nx]).to(dtype=torch.float32,device=device).unsqueeze(0)
             pre = net(p)
 
             value = pre.item()
@@ -55,7 +57,8 @@ def test_model(args):
             # print(predict_iso)
 
     y = np.array(y)
-
+    end_time = time.time()
+    print(f"使用时间：{(end_time-start_time):.2f}s")
     # plot scatter
     plt.scatter(x, y)
     plt.xlabel('index')

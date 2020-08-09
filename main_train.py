@@ -38,10 +38,11 @@ def main_train(args):
     print("加载数据....")
     dataset = ISONetData(data_path=data_path)
     dataset_test = ISONetData(data_path=data_path, train=False)
-
     data_loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True, num_workers=6, pin_memory=True)
     data_loader_test = DataLoader(dataset=dataset_test, batch_size=batch_size, shuffle=False)
     print("成功加载数据...")
+    print(f"训练集数量: {len(dataset)}")
+    print(f"验证集数量: {len(dataset_test)}")
 
     model_path = Path("models")
     checkpoint_path = model_path.joinpath("checkpoint")
@@ -121,9 +122,8 @@ def main_train(args):
                 print(
                     f">>> epoch[{epoch}] loss[{loss:.4f}]  {i * batch_size}/{len(dataset)} lr{scheduler.get_last_lr()} ",
                     end="")
-                print(f"耗费时间：[{end_time - start_time}] 秒")
-                all = (len(dataset)/500)*(end_time-start_time)
-                print(f"all: {all}")
+                left_time = ((len(dataset)-i*batch_size)/500/batch_size)*(end_time-start_time)
+                print(f"耗费时间：[{end_time - start_time:.2f}]秒,估计剩余时间: [{left_time:.2f}]秒")
                 start_time = end_time
             # 记录到 tensorboard
             if i % 128 == 127:

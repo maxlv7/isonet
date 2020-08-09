@@ -84,6 +84,8 @@ def gen_data(args):
                 # CHW * patch_size
                 patches = img_2_patches(t_pic, size, stride)
 
+                # 控制样本数量
+                patches = patches[:, :, :, :2400]
                 # 处理每一张小图
                 print(f"训练文件:{f} --> ##{patches.shape[3]}##样本")
                 for nx in range(patches.shape[3]):
