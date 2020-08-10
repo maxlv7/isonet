@@ -79,8 +79,6 @@ if __name__ == '__main__':
     parser.add_argument("--checkpoint", action='store_true', help="是否加载的是checkpoint")
 
     args = parser.parse_args()
-    args.model_path = 'models/net2_best_64aug3_jpeg.pth'
-    args.pic_path = 'data_jpg/Test/200/Nikon_D200_0_14902.JPG'
     # 输出参数
     for p, v in args.__dict__.items():
         print('\t{}: {}'.format(p, v))

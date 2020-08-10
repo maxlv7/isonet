@@ -1,6 +1,6 @@
 import argparse
-import time
 import os
+import time
 from pathlib import Path
 
 import torch
@@ -10,13 +10,13 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from isonet import ISONet
 from data_set import ISONetData
+from isonet import ISONet
 from utils import time2str
 
 
 def main_train(args):
-    # set paramaters
+    # 获取命令参数
     if args.resume_training is not None:
         if not os.path.isfile(args.resume_training):
             print(f"{args.resume_training} 不是一个合法的文件!")
